@@ -4,6 +4,9 @@ airflow:
     - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
       value: 'True'
 
+    - name: WEB_ADMIN_EMAILS
+      value: 'example.io'
+
     - name: GOOGLE_OAUTH2_CLIENT_ID
       valueFrom:
         secretKeyRef:
