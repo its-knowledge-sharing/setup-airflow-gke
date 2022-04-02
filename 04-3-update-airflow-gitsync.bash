@@ -9,7 +9,7 @@ kubectl create ns ${NS}
 helm repo add airflow https://airflow-helm.github.io/charts
 
 helm template airflow airflow/airflow \
-    -f airflows/airflow-2-gitsync-public.yaml \
+    -f airflows/airflow-3-gitsync-public.yaml \
     --version 8.5.3 \
     --namespace ${NS} > tmp-airflow.yaml
 
