@@ -4,8 +4,9 @@ source .env
 
 SECRET=google-oidc
 NS=airflow
+TMP=secret.tmp
 
-cat << EOF | kubectl apply -n ${NS} -f -
+cat << EOF > ${TMP}
 apiVersion: v1
 data:
   GOOGLE_OAUTH2_CLIENT_ID: "$(echo -n ${OIDC_CLIENT_ID} | base64)"
