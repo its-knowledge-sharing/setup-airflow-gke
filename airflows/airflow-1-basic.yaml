@@ -1,4 +1,9 @@
 ---
+airflow:
+  extraEnv:
+    - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
+      value: 'True'
+
 config:
   webserver:
     expose_config: 'True'

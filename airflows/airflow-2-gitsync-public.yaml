@@ -18,6 +18,5 @@ config:
     expose_config: 'True'
 
 logs:
-logs:
   persistence:
     enabled: false
