@@ -1,0 +1,106 @@
+---
+dags:
+  persistence:
+    enabled: false
+  gitSync:
+    enabled: true
+    repo: git@gitlab.com:ever-medical-technologies/dap/dap-airflow-dags.git
+    branch: develop
+    subPath: ""
+    sshSecret: development-helm-k8s-extensions-s2
+    sshSecretKey: id_rsa
+    sshKnownHosts: |-
+      # gitlab.com:22 SSH-2.0-OpenSSH_8.4p1 Debian-5
+      |1|MpeHxruZariE1IJ0z2LO6n6l53M=|6IuFlvMx9636HM7T8dFc3rk781E= ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7FcwzY92WK4Yt0aGROY5qX2UKSeOvuP4D6TPqKF1onrSzH9bx9XUf2lEdWT/ia1NEKjunUqu1xOB/StKDHMoX4/OKyIzuS0q/T1zOATthvasJFoPrAjkohTyaDUz2LN5JoH839hViyEG82yB+MjcFV5MU3N1l1QL3cVUCh93xSaua1N85qivl+siMkPGbO5xR/En4iEY6K2XPASUEMaieWVNTRCtJ4S8H+9
+
+airflow:
+  extraEnv:
+    - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
+      value: 'True'
+
+    - name: WEB_ADMIN_EMAILS
+      value: 'everapp.io'
+
+    - name: GOOGLE_OAUTH2_CLIENT_ID
+      valueFrom:
+        secretKeyRef:
+          name: development-helm-k8s-extensions-s1
+          key: GOOGLE_OAUTH2_CLIENT_ID
+
+    - name: GOOGLE_OAUTH2_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: development-helm-k8s-extensions-s1
+          key: GOOGLE_OAUTH2_SECRET
+
+config:
+  webserver:
+    expose_config: 'True'
+
+logs:
+  persistence:
+    enabled: false
+
+web:
+  webserverConfig:
+    stringOverride: |-
+      # Credit - https://github.com/apache/airflow/discussions/21358#discussioncomment-2119846
+      import os
+      import logging
+
+      from flask_appbuilder.security.manager import AUTH_OAUTH
+
+      basedir = os.path.abspath(os.path.dirname(__file__))
+      logger = logging.getLogger(__name__)
+
+      GOOGLE_CLIENT_ID = os.getenv('GOOGLE_OAUTH2_CLIENT_ID')
+      GOOGLE_SECRET = os.getenv('GOOGLE_OAUTH2_SECRET')
+      ADMIN_EMAILS = os.getenv("WEB_ADMIN_EMAILS", "").split(',')
+
+      AUTH_TYPE = AUTH_OAUTH
+      AUTH_ROLE_ADMIN = 'Admin'
+      AUTH_USER_REGISTRATION = True
+      AUTH_USER_REGISTRATION_ROLE = 'Admin'  # Testing with just everyone as admin
+
+      OAUTH_PROVIDERS = [{
+      'name':'google',
+          'token_key':'access_token',
+          'icon':'fa-google',
+              'remote_app': {
+                  'api_base_url':'https://www.googleapis.com/oauth2/v2/',
+                  'client_kwargs':{
+                      'scope': 'email profile'
+                  },
+                  'access_token_url':'https://accounts.google.com/o/oauth2/token',
+                  'authorize_url':'https://accounts.google.com/o/oauth2/auth',
+                  'request_token_url': None,
+                  'client_id': GOOGLE_CLIENT_ID,
+                  'client_secret': GOOGLE_SECRET,
+              }
+      }]
+
+      # Custom Security Manager in order to get around the `role_keys` missing from Google OAuth response
+      # See: https://github.com/apache/airflow/issues/16783
+      from airflow.www.security import AirflowSecurityManager
+      AUTH_ROLES_MAPPING = {
+          "devs": ["Viewer"],
+          "admins": ["Admin"]
+      }
+
+      class GoogleAirflowSecurityManager(AirflowSecurityManager):
+          def oauth_user_info(self, provider, resp):
+              assert provider == "google", "Google provider is only supported in this Security Manager"
+              me = self.appbuilder.sm.oauth_remotes[provider].get("userinfo")
+              data = me.json()
+              email = data.get("email", "")
+              # Maps back to AUTH_ROLES_MAPPING keys
+              role_keys = ["admins"] if email in ADMIN_EMAILS else ["devs"]
+              return {
+                  "username": "google_" + data.get("id", ""),
+                  "first_name": data.get("given_name", ""),
+                  "last_name": data.get("family_name", ""),
+                  "email": email,
+                  "role_keys": role_keys
+              }
+
+      SECURITY_MANAGER_CLASS = GoogleAirflowSecurityManager

@@ -1,0 +1,8 @@
+---
+config:
+  webserver:
+    expose_config: 'True'
+
+logs:
+  persistence:
+    enabled: false
