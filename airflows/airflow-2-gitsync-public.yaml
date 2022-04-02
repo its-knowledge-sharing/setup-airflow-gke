@@ -1,10 +1,15 @@
 ---
+airflow:
+  extraEnv:
+    - name: AIRFLOW__WEBSERVER__ENABLE_PROXY_FIX
+      value: 'True'
+
 dags:
   persistence:
     enabled: false
   gitSync:
     enabled: true
-    repo: git@github.com:apache/airflow.git
+    repo: https://github.com/apache/airflow.git
     branch: main
     subPath: "airflow/example_dags"
     #sshSecret: development-helm-k8s-extensions-s2
